@@ -8,8 +8,7 @@ import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -17,6 +16,8 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/reports")
 public class ReportController {
+
+    private static final ZoneId REPORT_ZONE = ZoneId.of("America/New_York");
 
     private final ShiftRepository shiftRepository;
     private final StoreVisitRepository storeVisitRepository;
@@ -28,12 +29,12 @@ public class ReportController {
 
     @GetMapping("/csv")
     public ResponseEntity<byte[]> exportCsv(@RequestParam String start, @RequestParam String end) {
-        LocalDateTime startDt = LocalDate.parse(start).atStartOfDay();
-        LocalDateTime endDt = LocalDate.parse(end).atTime(23, 59, 59);
-        List<Shift> shifts = shiftRepository.findByClockInTimeBetween(startDt, endDt);
+        Instant startInstant = LocalDate.parse(start).atStartOfDay(REPORT_ZONE).toInstant();
+        Instant endInstant = LocalDate.parse(end).atTime(23, 59, 59).atZone(REPORT_ZONE).toInstant();
+        List<Shift> shifts = shiftRepository.findByClockInTimeBetween(startInstant, endInstant);
 
-        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("MM/dd/yyyy");
-        DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("h:mm a");
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("MM/dd/yyyy").withZone(REPORT_ZONE);
+        DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("h:mm a").withZone(REPORT_ZONE);
 
         StringBuilder sb = new StringBuilder();
         sb.append("Date,Clock In,Clock Out,Total Hours,Stores Visited,Total Miles\n");
@@ -44,9 +45,9 @@ public class ReportController {
                     .map(v -> v.getStore().getName())
                     .collect(Collectors.joining(" -> "));
 
-            sb.append(shift.getClockInTime().format(dateFmt)).append(",");
-            sb.append(shift.getClockInTime().format(timeFmt)).append(",");
-            sb.append(shift.getClockOutTime() != null ? shift.getClockOutTime().format(timeFmt) : "").append(",");
+            sb.append(dateFmt.format(shift.getClockInTime())).append(",");
+            sb.append(timeFmt.format(shift.getClockInTime())).append(",");
+            sb.append(shift.getClockOutTime() != null ? timeFmt.format(shift.getClockOutTime()) : "").append(",");
             sb.append(shift.getTotalHours() != null ? shift.getTotalHours() : "").append(",");
             sb.append("\"").append(storeNames).append("\",");
             sb.append(shift.getTotalMiles() != null ? shift.getTotalMiles() : "").append("\n");

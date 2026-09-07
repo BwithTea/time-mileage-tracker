@@ -6,7 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 @RestController
@@ -38,7 +38,7 @@ public class ShiftController {
         Store store = storeRepository.findById(storeId).orElseThrow();
 
         Shift shift = new Shift();
-        shift.setClockInTime(LocalDateTime.now());
+        shift.setClockInTime(Instant.now());
         shift = shiftRepository.save(shift);
 
         StoreVisit visit = new StoreVisit();
@@ -78,7 +78,7 @@ public class ShiftController {
         storeVisitRepository.save(finalVisit);
         existing.add(finalVisit);
 
-        shift.setClockOutTime(LocalDateTime.now());
+        shift.setClockOutTime(Instant.now());
 
         double hours = Duration.between(shift.getClockInTime(), shift.getClockOutTime()).toMinutes() / 60.0;
         shift.setTotalHours(hours);

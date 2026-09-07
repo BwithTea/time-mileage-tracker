@@ -3,7 +3,7 @@ package com.tea.time_mileage_tracker.model;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Data
@@ -14,8 +14,8 @@ public class Shift {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private LocalDateTime clockInTime;
-    private LocalDateTime clockOutTime;
+    private Instant clockInTime;
+    private Instant clockOutTime;
 
     private Double totalHours;
     private Double totalMiles;
