@@ -10,4 +10,5 @@ import java.util.Optional;
 public interface ShiftRepository extends JpaRepository<Shift, Long> {
     Optional<Shift> findFirstByClockOutTimeIsNullOrderByClockInTimeDesc();
     List<Shift> findByClockInTimeBetween(Instant start, Instant end);
+    List<Shift> findTop20ByOrderByClockInTimeDesc();
 }

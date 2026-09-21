@@ -17,6 +17,8 @@ public class Shift {
     private Instant clockInTime;
     private Instant clockOutTime;
 
+    private Instant lunchStartTime;
+    private Instant lunchEndTime;
+
     private Double totalHours;
-    private Double totalMiles;
 }

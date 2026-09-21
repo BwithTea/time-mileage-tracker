@@ -7,6 +7,7 @@ import com.tea.time_mileage_tracker.repository.StoreVisitRepository;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.http.HttpHeaders;
 import java.nio.charset.StandardCharsets;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -37,7 +38,7 @@ public class ReportController {
         DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("h:mm a").withZone(REPORT_ZONE);
 
         StringBuilder sb = new StringBuilder();
-        sb.append("Date,Clock In,Clock Out,Total Hours,Stores Visited,Total Miles\n");
+        sb.append("Date,Clock In,Lunch Start,Lunch End,Clock Out,Total Hours,Stores Visited\n");
 
         for (Shift shift : shifts) {
             List<StoreVisit> visits = storeVisitRepository.findByShiftIdOrderBySequenceOrderAsc(shift.getId());
@@ -47,10 +48,11 @@ public class ReportController {
 
             sb.append(dateFmt.format(shift.getClockInTime())).append(",");
             sb.append(timeFmt.format(shift.getClockInTime())).append(",");
+            sb.append(shift.getLunchStartTime() != null ? timeFmt.format(shift.getLunchStartTime()) : "").append(",");
+            sb.append(shift.getLunchEndTime() != null ? timeFmt.format(shift.getLunchEndTime()) : "").append(",");
             sb.append(shift.getClockOutTime() != null ? timeFmt.format(shift.getClockOutTime()) : "").append(",");
             sb.append(shift.getTotalHours() != null ? shift.getTotalHours() : "").append(",");
-            sb.append("\"").append(storeNames).append("\",");
-            sb.append(shift.getTotalMiles() != null ? shift.getTotalMiles() : "").append("\n");
+            sb.append("\"").append(storeNames).append("\"\n");
         }
 
         byte[] csvBytes = sb.toString().getBytes(StandardCharsets.UTF_8);

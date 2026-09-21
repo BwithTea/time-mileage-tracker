@@ -8,10 +8,14 @@
   body { font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 16px; }
   button { width: 100%; padding: 16px; font-size: 18px; margin: 8px 0; border-radius: 8px; border: none; }
   .primary { background: #2563eb; color: white; }
+  .secondary { background: #f59e0b; color: white; }
   .danger { background: #dc2626; color: white; }
-  select, input { width: 100%; padding: 10px; font-size: 16px; margin: 4px 0; }
+  select, input { width: 100%; padding: 10px; font-size: 16px; margin: 4px 0; box-sizing: border-box; }
   #status { padding: 12px; background: #f1f5f9; border-radius: 8px; margin: 12px 0; }
   h3 { margin-top: 32px; }
+  .shiftRow { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin: 8px 0; }
+  .shiftRow label { font-size: 13px; color: #475569; display: block; margin-top: 8px; }
+  .shiftRow button { padding: 10px; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -22,33 +26,41 @@
 <select id="storeSelect"></select>
 <button class="primary" onclick="clockIn()">Clock In (at this store)</button>
 <button class="primary" onclick="logVisit()">I'm at this store</button>
+<button class="secondary" onclick="startLunch()">Start Lunch</button>
+<button class="secondary" onclick="endLunch()">End Lunch</button>
 <button class="danger" onclick="clockOut()">Clock Out (at this store)</button>
 
 <h3>Add a store</h3>
 <input id="newStoreName" placeholder="Store name">
 <button onclick="addStore()">Add store</button>
 
-<h3>Set distance between two stores</h3>
-<select id="distA"></select>
-<select id="distB"></select>
-<input id="distMiles" type="number" step="0.1" placeholder="Miles">
-<button onclick="addDistance()">Save distance</button>
-
 <h3>Two-week report</h3>
 <input id="startDate" type="date">
 <input id="endDate" type="date">
 <button onclick="downloadReport()">Download CSV</button>
 
+<h3>Edit past shifts</h3>
+<div id="shiftList"></div>
+
 <script>
 let currentShift = null;
+
+function toLocalInputValue(isoString) {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fromLocalInputValue(value) {
+  if (!value) return null;
+  return new Date(value).toISOString();
+}
 
 async function loadStores() {
   const res = await fetch('/api/stores');
   const stores = await res.json();
   const opts = stores.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
   document.getElementById('storeSelect').innerHTML = opts;
-  document.getElementById('distA').innerHTML = opts;
-  document.getElementById('distB').innerHTML = opts;
 }
 
 async function loadStatus() {
@@ -58,8 +70,14 @@ async function loadStatus() {
     document.getElementById('status').textContent = 'Not currently clocked in.';
   } else {
     currentShift = await res.json();
-    document.getElementById('status').textContent =
-      'Clocked in since ' + new Date(currentShift.clockInTime).toLocaleTimeString();
+    let text = 'Clocked in since ' + new Date(currentShift.clockInTime).toLocaleTimeString();
+    if (currentShift.lunchStartTime && !currentShift.lunchEndTime) {
+      text += ' — on lunch since ' + new Date(currentShift.lunchStartTime).toLocaleTimeString();
+    } else if (currentShift.lunchStartTime && currentShift.lunchEndTime) {
+      text += ' — lunch ' + new Date(currentShift.lunchStartTime).toLocaleTimeString() +
+              ' to ' + new Date(currentShift.lunchEndTime).toLocaleTimeString();
+    }
+    document.getElementById('status').textContent = text;
   }
 }
 
@@ -67,6 +85,7 @@ async function clockIn() {
   const storeId = document.getElementById('storeSelect').value;
   await fetch(`/api/shifts/clock-in?storeId=${storeId}`, { method: 'POST' });
   await loadStatus();
+  await loadShiftList();
 }
 
 async function logVisit() {
@@ -76,11 +95,24 @@ async function logVisit() {
   alert('Logged.');
 }
 
+async function startLunch() {
+  if (!currentShift) return alert('Clock in first.');
+  await fetch(`/api/shifts/${currentShift.id}/lunch/start`, { method: 'POST' });
+  await loadStatus();
+}
+
+async function endLunch() {
+  if (!currentShift) return alert('Clock in first.');
+  await fetch(`/api/shifts/${currentShift.id}/lunch/end`, { method: 'POST' });
+  await loadStatus();
+}
+
 async function clockOut() {
   if (!currentShift) return alert('Clock in first.');
   const storeId = document.getElementById('storeSelect').value;
   await fetch(`/api/shifts/${currentShift.id}/clock-out?storeId=${storeId}`, { method: 'POST' });
   await loadStatus();
+  await loadShiftList();
 }
 
 async function addStore() {
@@ -95,18 +127,6 @@ async function addStore() {
   await loadStores();
 }
 
-async function addDistance() {
-  const storeAId = document.getElementById('distA').value;
-  const storeBId = document.getElementById('distB').value;
-  const miles = document.getElementById('distMiles').value;
-  await fetch('/api/distances', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ storeAId, storeBId, miles })
-  });
-  alert('Distance saved.');
-}
-
 function downloadReport() {
   const start = document.getElementById('startDate').value;
   const end = document.getElementById('endDate').value;
@@ -114,8 +134,43 @@ function downloadReport() {
   window.location.href = `/api/reports/csv?start=${start}&end=${end}`;
 }
 
+async function loadShiftList() {
+  const res = await fetch('/api/shifts/recent');
+  const shifts = await res.json();
+  const container = document.getElementById('shiftList');
+  container.innerHTML = shifts.map(s => `
+    <div class="shiftRow" id="row-${s.id}">
+      <label>Clock In</label>
+      <input type="datetime-local" id="in-${s.id}" value="${toLocalInputValue(s.clockInTime)}">
+      <label>Lunch Start</label>
+      <input type="datetime-local" id="lunchIn-${s.id}" value="${toLocalInputValue(s.lunchStartTime)}">
+      <label>Lunch End</label>
+      <input type="datetime-local" id="lunchOut-${s.id}" value="${toLocalInputValue(s.lunchEndTime)}">
+      <label>Clock Out</label>
+      <input type="datetime-local" id="out-${s.id}" value="${toLocalInputValue(s.clockOutTime)}">
+      <button onclick="saveShift(${s.id})">Save</button>
+    </div>
+  `).join('');
+}
+
+async function saveShift(id) {
+  const clockInTime = fromLocalInputValue(document.getElementById(`in-${id}`).value);
+  const clockOutTime = fromLocalInputValue(document.getElementById(`out-${id}`).value);
+  const lunchStartTime = fromLocalInputValue(document.getElementById(`lunchIn-${id}`).value);
+  const lunchEndTime = fromLocalInputValue(document.getElementById(`lunchOut-${id}`).value);
+
+  await fetch(`/api/shifts/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clockInTime, clockOutTime, lunchStartTime, lunchEndTime })
+  });
+  alert('Saved.');
+  await loadStatus();
+}
+
 loadStores();
 loadStatus();
+loadShiftList();
 </script>
 </body>
 </html>

@@ -16,14 +16,26 @@ public class ShiftController {
     private final ShiftRepository shiftRepository;
     private final StoreVisitRepository storeVisitRepository;
     private final StoreRepository storeRepository;
-    private final DistanceRepository distanceRepository;
 
     public ShiftController(ShiftRepository shiftRepository, StoreVisitRepository storeVisitRepository,
-                            StoreRepository storeRepository, DistanceRepository distanceRepository) {
+                            StoreRepository storeRepository) {
         this.shiftRepository = shiftRepository;
         this.storeVisitRepository = storeVisitRepository;
         this.storeRepository = storeRepository;
-        this.distanceRepository = distanceRepository;
+    }
+
+    private double lunchMinutes(Shift shift) {
+        if (shift.getLunchStartTime() != null && shift.getLunchEndTime() != null) {
+            return Duration.between(shift.getLunchStartTime(), shift.getLunchEndTime()).toMinutes();
+        }
+        return 0;
+    }
+
+    private void recomputeHours(Shift shift) {
+        if (shift.getClockInTime() != null && shift.getClockOutTime() != null) {
+            double totalMinutes = Duration.between(shift.getClockInTime(), shift.getClockOutTime()).toMinutes();
+            shift.setTotalHours((totalMinutes - lunchMinutes(shift)) / 60.0);
+        }
     }
 
     @GetMapping("/current")
@@ -31,6 +43,11 @@ public class ShiftController {
         return shiftRepository.findFirstByClockOutTimeIsNullOrderByClockInTimeDesc()
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.noContent().build());
+    }
+
+    @GetMapping("/recent")
+    public List<Shift> recentShifts() {
+        return shiftRepository.findTop20ByOrderByClockInTimeDesc();
     }
 
     @PostMapping("/clock-in")
@@ -64,6 +81,22 @@ public class ShiftController {
         return storeVisitRepository.save(visit);
     }
 
+    @PostMapping("/{shiftId}/lunch/start")
+    public Shift startLunch(@PathVariable Long shiftId) {
+        Shift shift = shiftRepository.findById(shiftId).orElseThrow();
+        shift.setLunchStartTime(Instant.now());
+        shift.setLunchEndTime(null);
+        return shiftRepository.save(shift);
+    }
+
+    @PostMapping("/{shiftId}/lunch/end")
+    public Shift endLunch(@PathVariable Long shiftId) {
+        Shift shift = shiftRepository.findById(shiftId).orElseThrow();
+        shift.setLunchEndTime(Instant.now());
+        recomputeHours(shift);
+        return shiftRepository.save(shift);
+    }
+
     @PostMapping("/{shiftId}/clock-out")
     public Shift clockOut(@PathVariable Long shiftId, @RequestParam Long storeId) {
         Shift shift = shiftRepository.findById(shiftId).orElseThrow();
@@ -76,23 +109,23 @@ public class ShiftController {
         finalVisit.setStore(store);
         finalVisit.setSequenceOrder(existing.size() + 1);
         storeVisitRepository.save(finalVisit);
-        existing.add(finalVisit);
 
         shift.setClockOutTime(Instant.now());
+        recomputeHours(shift);
 
-        double hours = Duration.between(shift.getClockInTime(), shift.getClockOutTime()).toMinutes() / 60.0;
-        shift.setTotalHours(hours);
+        return shiftRepository.save(shift);
+    }
 
-        double totalMiles = 0.0;
-        for (int i = 0; i < existing.size() - 1; i++) {
-            Long fromId = existing.get(i).getStore().getId();
-            Long toId = existing.get(i + 1).getStore().getId();
-            totalMiles += distanceRepository.findBetween(fromId, toId)
-                    .map(Distance::getMiles)
-                    .orElse(0.0);
-        }
-        shift.setTotalMiles(totalMiles);
+    public record ShiftUpdateRequest(String clockInTime, String clockOutTime, String lunchStartTime, String lunchEndTime) {}
 
+    @PatchMapping("/{shiftId}")
+    public Shift updateShift(@PathVariable Long shiftId, @RequestBody ShiftUpdateRequest req) {
+        Shift shift = shiftRepository.findById(shiftId).orElseThrow();
+        if (req.clockInTime() != null) shift.setClockInTime(Instant.parse(req.clockInTime()));
+        if (req.clockOutTime() != null) shift.setClockOutTime(Instant.parse(req.clockOutTime()));
+        if (req.lunchStartTime() != null) shift.setLunchStartTime(Instant.parse(req.lunchStartTime()));
+        if (req.lunchEndTime() != null) shift.setLunchEndTime(Instant.parse(req.lunchEndTime()));
+        recomputeHours(shift);
         return shiftRepository.save(shift);
     }
 }
