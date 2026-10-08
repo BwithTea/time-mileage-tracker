@@ -158,6 +158,37 @@
            opacity: 0; pointer-events: none; transition: all .25s; max-width: 90%; text-align: center; z-index: 20; }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   #toast.error { background: var(--red); color: #fff; }
+
+  /* Issues */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+  .stat .n { font-size: 22px; font-weight: 700; }
+  .stat .l { font-size: 12px; color: var(--muted); }
+  .stat.red .n { color: var(--red); }
+  .stat.amber .n { color: var(--amber); }
+  .issue { border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-top: 10px; background: var(--surface-2); }
+  .issue.resolved { opacity: .7; }
+  .issue-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .issue-store { font-size: 12px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: .04em; }
+  .issue-title { font-weight: 600; margin-top: 2px; word-wrap: break-word; }
+  .issue-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .status { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  .s-OPEN { background: var(--red-soft); color: var(--red); }
+  .s-IN_PROGRESS { background: var(--amber-soft); color: var(--amber); }
+  .s-RESOLVED { background: var(--green-soft); color: var(--green); }
+  .fu { font-weight: 600; color: var(--text); }
+  .fu.overdue { color: var(--red); }
+  .fu.due { color: var(--amber); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .chip { font: inherit; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 999px;
+          background: var(--surface-2); border: 1px solid var(--border); color: var(--text); cursor: pointer; }
+  textarea { width: 100%; font: inherit; font-size: 16px; color: var(--text); background: var(--surface-2);
+             border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; outline: none; resize: vertical; min-height: 70px; }
+  textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .tab { position: relative; }
+  .tab-badge { position: absolute; top: 2px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px;
+               border-radius: 999px; background: var(--red); color: #fff; font-size: 11px; font-weight: 700;
+               display: flex; align-items: center; justify-content: center; }
 </style>
 </head>
 <body>
@@ -184,7 +215,7 @@
 
     <div class="card">
       <label class="field" for="storeSelect" style="margin-top:0">Store</label>
-      <select id="storeSelect"></select>
+      <select id="storeSelect" onchange="loadStoreIssues()"></select>
       <label class="field" for="noteInput">Quick note <span style="opacity:.7">(optional)</span></label>
       <input id="noteInput" maxlength="200" placeholder="e.g. Checked fryer temps, fixed POS 2">
 
@@ -208,6 +239,12 @@
       </div>
     </div>
 
+    <div class="card" id="storeIssuesCard">
+      <h2>Open issues at this store <span class="count" id="storeIssueCount"></span></h2>
+      <div id="storeIssues"></div>
+      <button class="btn btn-ghost btn-sm" onclick="newIssueForSelectedStore()">Log an issue here</button>
+    </div>
+
     <div class="card hidden" id="currentStopsCard">
       <h2>This shift's stops <span class="count" id="stopCount"></span></h2>
       <div id="currentVisits"></div>
@@ -219,6 +256,59 @@
     <div class="card">
       <h2>Recent shifts <span class="count">Tap Edit to fix times, stores, or notes</span></h2>
       <div id="shiftList"></div>
+    </div>
+  </section>
+
+  <!-- ISSUES -->
+  <section class="view" id="view-issues">
+    <div class="card">
+      <div class="stats" id="issueStats"></div>
+      <button class="btn btn-primary" id="newIssueToggle" onclick="toggleNewIssue()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        New issue
+      </button>
+      <div class="hidden" id="newIssueForm">
+        <label class="field" for="newIssueStore">Store</label>
+        <select id="newIssueStore"></select>
+        <label class="field" for="newIssueTitle">What's the problem?</label>
+        <input id="newIssueTitle" maxlength="120" placeholder="e.g. Drive thru headset cutting out">
+        <label class="field" for="newIssueDetails">Details <span style="opacity:.7">(optional)</span></label>
+        <textarea id="newIssueDetails" maxlength="2000" placeholder="Anything you'll want to remember"></textarea>
+        <label class="field" for="newIssueReporter">Reported by <span style="opacity:.7">(optional)</span></label>
+        <input id="newIssueReporter" maxlength="80" placeholder="e.g. GM, shift manager, you">
+        <label class="field" for="newIssueFollowUp">Follow up on</label>
+        <input id="newIssueFollowUp" type="date">
+        <div class="chips">
+          <button class="chip" onclick="setFollowUp('newIssueFollowUp', 1)">Tomorrow</button>
+          <button class="chip" onclick="setFollowUp('newIssueFollowUp', 3)">In 3 days</button>
+          <button class="chip" onclick="setFollowUp('newIssueFollowUp', 7)">Next week</button>
+          <button class="chip" onclick="$('newIssueFollowUp').value=''">None</button>
+        </div>
+        <div class="row">
+          <button class="btn btn-ghost" onclick="toggleNewIssue(false)">Cancel</button>
+          <button class="btn btn-primary" onclick="createIssue()">Save issue</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid2">
+        <div>
+          <label class="field" for="issueStatusFilter" style="margin-top:0">Show</label>
+          <select id="issueStatusFilter" onchange="renderIssues()">
+            <option value="active">Open and in progress</option>
+            <option value="OPEN">Open only</option>
+            <option value="IN_PROGRESS">In progress only</option>
+            <option value="RESOLVED">Resolved</option>
+            <option value="all">Everything</option>
+          </select>
+        </div>
+        <div>
+          <label class="field" for="issueStoreFilter" style="margin-top:0">Store</label>
+          <select id="issueStoreFilter" onchange="renderIssues()"></select>
+        </div>
+      </div>
+      <div id="issueList"></div>
     </div>
   </section>
 
@@ -252,6 +342,11 @@
     <button class="tab" data-view="history" onclick="showView('history')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
       History
+    </button>
+    <button class="tab" data-view="issues" onclick="showView('issues')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+      Issues
+      <span class="tab-badge hidden" id="issueBadge"></span>
     </button>
     <button class="tab" data-view="settings" onclick="showView('settings')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
@@ -302,6 +397,7 @@ function showView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === name));
   if (name === 'history') loadShiftList();
+  if (name === 'issues') loadIssues();
   window.scrollTo({ top: 0 });
 }
 
@@ -326,6 +422,10 @@ async function loadStores() {
   stores = await res.json();
   $('storeSelect').innerHTML = storeOptions();
   $('storeChips').textContent = stores.length ? stores.map(s => s.name).join(' · ') : 'No stores yet.';
+  $('newIssueStore').innerHTML = storeOptions();
+  const keep = $('issueStoreFilter').value;
+  $('issueStoreFilter').innerHTML = '<option value="">All stores</option>' + storeOptions();
+  $('issueStoreFilter').value = keep;
 }
 
 async function loadStatus() {
@@ -573,11 +673,234 @@ function downloadReport() {
   window.location.href = `/api/reports/csv?start=${start}&end=${end}`;
 }
 
+/* ---------- issues ---------- */
+let issues = [];
+const STATUS_LABEL = { OPEN: 'Open', IN_PROGRESS: 'In progress', RESOLVED: 'Resolved' };
+
+function ymd(d) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function fmtDate(s) {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+}
+function daysAgo(iso) {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  return days <= 0 ? 'today' : days === 1 ? 'yesterday' : days + ' days ago';
+}
+function setFollowUp(inputId, days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  $(inputId).value = ymd(d);
+}
+function followUpInfo(i) {
+  if (!i.followUpDate || i.status === 'RESOLVED') return null;
+  const today = ymd(new Date());
+  if (i.followUpDate < today) return { cls: 'overdue', text: 'Overdue, was ' + fmtDate(i.followUpDate) };
+  if (i.followUpDate === today) return { cls: 'due', text: 'Follow up today' };
+  return { cls: '', text: 'Follow up ' + fmtDate(i.followUpDate) };
+}
+// Overdue first, then due today, then in progress, then open, then resolved.
+function issueRank(i) {
+  if (i.status === 'RESOLVED') return 4;
+  const f = followUpInfo(i);
+  if (f && f.cls === 'overdue') return 0;
+  if (f && f.cls === 'due') return 1;
+  return i.status === 'IN_PROGRESS' ? 2 : 3;
+}
+function sortIssues(list) {
+  return list.sort((a, b) =>
+    issueRank(a) - issueRank(b) ||
+    (a.followUpDate || '9999').localeCompare(b.followUpDate || '9999') ||
+    new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+async function loadIssues() {
+  const res = await fetch('/api/issues');
+  if (!res.ok) return;
+  issues = await res.json();
+  renderIssues();
+  loadStoreIssues();
+  updateIssueBadge();
+}
+
+function updateIssueBadge() {
+  const n = issues.filter(i => { const f = followUpInfo(i); return f && (f.cls === 'overdue' || f.cls === 'due'); }).length;
+  $('issueBadge').textContent = n;
+  show('issueBadge', n > 0);
+}
+
+function issueCard(i, p) {
+  const f = followUpInfo(i);
+  const k = `${p}-issue-${i.id}`;
+  const statusOpts = Object.keys(STATUS_LABEL)
+    .map(s => `<option value="${s}" ${s === i.status ? 'selected' : ''}>${STATUS_LABEL[s]}</option>`).join('');
+  return `
+    <div class="issue ${i.status === 'RESOLVED' ? 'resolved' : ''}">
+      <div class="issue-head">
+        <div style="min-width:0">
+          <div class="issue-store">${escapeHtml(i.store ? i.store.name : 'No store')}</div>
+          <div class="issue-title">${escapeHtml(i.title)}</div>
+        </div>
+        <span class="status s-${i.status}">${STATUS_LABEL[i.status]}</span>
+      </div>
+      ${i.details ? `<div class="stop-note" style="margin-top:6px">${escapeHtml(i.details)}</div>` : ''}
+      ${i.resolution ? `<div class="stop-note" style="margin-top:6px"><strong>Fix:</strong> ${escapeHtml(i.resolution)}</div>` : ''}
+      <div class="issue-meta">
+        ${f ? `<span class="fu ${f.cls}">${f.text}</span>` : ''}
+        <span>Logged ${daysAgo(i.createdAt)}${i.reportedBy ? ' by ' + escapeHtml(i.reportedBy) : ''}</span>
+        ${i.status === 'RESOLVED' && i.resolvedAt ? `<span>Resolved ${daysAgo(i.resolvedAt)}</span>` : ''}
+      </div>
+      <div class="row">
+        ${i.status !== 'RESOLVED'
+          ? `<button class="btn btn-green btn-sm" style="background:var(--green-soft);color:var(--green)" onclick="resolveIssue(${i.id})">Mark resolved</button>`
+          : `<button class="btn btn-ghost btn-sm" onclick="quickStatus(${i.id}, 'OPEN')">Reopen</button>`}
+        <button class="btn btn-ghost btn-sm" onclick="show('${k}', $('${k}').classList.contains('hidden'))">Manage</button>
+      </div>
+      <div class="hidden" id="${k}">
+        <div class="divider"></div>
+        <label class="field">Title</label>
+        <input id="${k}-title" maxlength="120" value="${escapeHtml(i.title)}">
+        <div class="grid2">
+          <div><label class="field">Status</label><select id="${k}-status">${statusOpts}</select></div>
+          <div><label class="field">Store</label><select id="${k}-store">${storeOptions(i.store ? i.store.id : null)}</select></div>
+        </div>
+        <label class="field">Follow up on</label>
+        <input id="${k}-fu" type="date" value="${i.followUpDate || ''}">
+        <div class="chips">
+          <button class="chip" onclick="setFollowUp('${k}-fu', 1)">Tomorrow</button>
+          <button class="chip" onclick="setFollowUp('${k}-fu', 3)">In 3 days</button>
+          <button class="chip" onclick="setFollowUp('${k}-fu', 7)">Next week</button>
+          <button class="chip" onclick="$('${k}-fu').value=''">None</button>
+        </div>
+        <label class="field">Reported by</label>
+        <input id="${k}-rep" maxlength="80" value="${escapeHtml(i.reportedBy)}">
+        <label class="field">Details</label>
+        <textarea id="${k}-details" maxlength="2000">${escapeHtml(i.details)}</textarea>
+        <label class="field">What fixed it</label>
+        <textarea id="${k}-res" maxlength="1000" placeholder="Optional, fill in when resolved">${escapeHtml(i.resolution)}</textarea>
+        <div class="row">
+          <button class="btn btn-red btn-sm" onclick="deleteIssue(${i.id})">Delete</button>
+          <button class="btn btn-primary btn-sm" onclick="saveIssue(${i.id}, '${p}')">Save</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderIssues() {
+  const statusF = $('issueStatusFilter').value;
+  const storeF = $('issueStoreFilter').value;
+  const list = sortIssues(issues
+    .filter(i => statusF === 'all' || (statusF === 'active' ? i.status !== 'RESOLVED' : i.status === statusF))
+    .filter(i => !storeF || (i.store && String(i.store.id) === storeF)));
+
+  const active = issues.filter(i => i.status !== 'RESOLVED');
+  const overdue = active.filter(i => followUpInfo(i)?.cls === 'overdue').length;
+  const today = active.filter(i => followUpInfo(i)?.cls === 'due').length;
+  $('issueStats').innerHTML = `
+    <div class="stat"><div class="n">${active.length}</div><div class="l">Open</div></div>
+    <div class="stat ${overdue ? 'red' : ''}"><div class="n">${overdue}</div><div class="l">Overdue</div></div>
+    <div class="stat ${today ? 'amber' : ''}"><div class="n">${today}</div><div class="l">Due today</div></div>`;
+
+  $('issueList').innerHTML = list.length
+    ? list.map(i => issueCard(i, 'list')).join('')
+    : '<div class="empty-state">Nothing here. Nice.</div>';
+}
+
+function loadStoreIssues() {
+  const storeId = $('storeSelect').value;
+  const open = sortIssues(issues.filter(i => i.status !== 'RESOLVED' && i.store && String(i.store.id) === storeId));
+  $('storeIssueCount').textContent = open.length ? open.length + ' open' : '';
+  $('storeIssues').innerHTML = open.length
+    ? open.map(i => issueCard(i, 'today')).join('')
+    : '<div class="empty-state">No open issues here.</div>';
+}
+
+function toggleNewIssue(force) {
+  const form = $('newIssueForm');
+  const opening = force ?? form.classList.contains('hidden');
+  show('newIssueForm', opening);
+  show('newIssueToggle', !opening);
+  if (opening) $('newIssueTitle').focus();
+}
+
+function newIssueForSelectedStore() {
+  showView('issues');
+  $('newIssueStore').value = $('storeSelect').value;
+  toggleNewIssue(true);
+}
+
+async function createIssue() {
+  const title = $('newIssueTitle').value.trim();
+  if (!title) return toast('Give it a short title.', true);
+  if (!stores.length) return toast('Add a store first under Reports.', true);
+  const res = await fetch('/api/issues', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      storeId: Number($('newIssueStore').value),
+      title,
+      details: $('newIssueDetails').value,
+      reportedBy: $('newIssueReporter').value,
+      followUpDate: $('newIssueFollowUp').value
+    })
+  });
+  if (!res.ok) return toast('Could not save the issue.', true);
+  ['newIssueTitle', 'newIssueDetails', 'newIssueReporter', 'newIssueFollowUp'].forEach(id => $(id).value = '');
+  toggleNewIssue(false);
+  toast('Issue logged');
+  await loadIssues();
+}
+
+async function patchIssue(id, body, okMsg) {
+  const res = await fetch(`/api/issues/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  toast(res.ok ? okMsg : 'Could not save.', !res.ok);
+  await loadIssues();
+}
+
+function resolveIssue(id) {
+  const fix = prompt('What fixed it? (optional)');
+  if (fix === null) return; // tapped Cancel
+  const body = { status: 'RESOLVED' };
+  if (fix.trim()) body.resolution = fix;
+  patchIssue(id, body, 'Marked resolved');
+}
+
+function quickStatus(id, status) {
+  patchIssue(id, { status }, 'Issue reopened');
+}
+
+function saveIssue(id, p) {
+  const k = `${p}-issue-${id}`;
+  patchIssue(id, {
+    title: $(`${k}-title`).value,
+    status: $(`${k}-status`).value,
+    storeId: Number($(`${k}-store`).value),
+    followUpDate: $(`${k}-fu`).value,
+    reportedBy: $(`${k}-rep`).value,
+    details: $(`${k}-details`).value,
+    resolution: $(`${k}-res`).value
+  }, 'Issue saved');
+}
+
+async function deleteIssue(id) {
+  if (!confirm('Delete this issue for good?')) return;
+  const res = await fetch(`/api/issues/${id}`, { method: 'DELETE' });
+  toast(res.ok ? 'Issue deleted' : 'Could not delete.', !res.ok);
+  await loadIssues();
+}
+
 /* ---------- boot ---------- */
 $('todayLabel').textContent = new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
 (async () => {
   await loadStores();
   await loadStatus();
+  await loadIssues();
 })();
 </script>
 </body>
