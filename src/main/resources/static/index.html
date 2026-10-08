@@ -1,176 +1,584 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Time Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Shift Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  body { font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 16px; }
-  button { width: 100%; padding: 16px; font-size: 18px; margin: 8px 0; border-radius: 8px; border: none; }
-  .primary { background: #2563eb; color: white; }
-  .secondary { background: #f59e0b; color: white; }
-  .danger { background: #dc2626; color: white; }
-  select, input { width: 100%; padding: 10px; font-size: 16px; margin: 4px 0; box-sizing: border-box; }
-  #status { padding: 12px; background: #f1f5f9; border-radius: 8px; margin: 12px 0; }
-  h3 { margin-top: 32px; }
-  .shiftRow { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin: 8px 0; }
-  .shiftRow label { font-size: 13px; color: #475569; display: block; margin-top: 8px; }
-  .shiftRow button { padding: 10px; font-size: 14px; }
+  :root {
+    --bg: #f4f6fa;
+    --surface: #ffffff;
+    --surface-2: #f8fafc;
+    --border: #e5e9f0;
+    --text: #0f172a;
+    --muted: #64748b;
+    --accent: #2563eb;
+    --accent-soft: #e8efff;
+    --green: #16a34a;
+    --green-soft: #dcfce7;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --red: #dc2626;
+    --red-soft: #fee2e2;
+    --hero-1: #0f172a;
+    --hero-2: #1e3a8a;
+    --shadow: 0 1px 2px rgba(15,23,42,.04), 0 4px 16px rgba(15,23,42,.06);
+    --radius: 16px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1120;
+      --surface: #111827;
+      --surface-2: #0f172a;
+      --border: #1f2937;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-soft: #172554;
+      --green-soft: #052e16;
+      --amber-soft: #3a2506;
+      --red-soft: #3b0d0d;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--text);
+    font-size: 15px; line-height: 1.45;
+    padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+  .wrap { max-width: 520px; margin: 0 auto; padding: 0 16px; }
+
+  /* Header */
+  header { padding: calc(18px + env(safe-area-inset-top)) 0 12px; }
+  .brand { display: flex; align-items: center; justify-content: space-between; }
+  .brand h1 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  .brand .date { font-size: 13px; color: var(--muted); }
+  .logo { display: inline-flex; width: 30px; height: 30px; border-radius: 9px; background: var(--accent);
+          color: #fff; align-items: center; justify-content: center; margin-right: 10px; vertical-align: middle; }
+  .logo svg { width: 18px; height: 18px; }
+
+  /* Hero status card */
+  .hero {
+    background: linear-gradient(135deg, var(--hero-1), var(--hero-2));
+    color: #fff; border-radius: 20px; padding: 20px; box-shadow: var(--shadow); margin-top: 6px;
+  }
+  .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+           padding: 5px 10px; border-radius: 999px; background: rgba(255,255,255,.12); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; }
+  .dot.on { background: #4ade80; box-shadow: 0 0 0 4px rgba(74,222,128,.2); }
+  .dot.lunch { background: #fbbf24; box-shadow: 0 0 0 4px rgba(251,191,36,.2); }
+  .timer { font-size: 44px; font-weight: 700; letter-spacing: -0.02em; margin: 14px 0 2px; font-variant-numeric: tabular-nums; }
+  .hero .sub { font-size: 13px; color: rgba(255,255,255,.72); }
+  .hero-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+  .meta { background: rgba(255,255,255,.08); border-radius: 12px; padding: 10px 12px; }
+  .meta .k { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: rgba(255,255,255,.6); }
+  .meta .v { font-size: 15px; font-weight: 600; margin-top: 2px; }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+          padding: 16px; margin-top: 14px; box-shadow: var(--shadow); }
+  .card h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; display: flex; justify-content: space-between; align-items: center; }
+  .card h2 .count { font-size: 12px; color: var(--muted); font-weight: 500; }
+  label.field { display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin: 10px 0 6px; }
+  select, input {
+    width: 100%; font: inherit; font-size: 16px; color: var(--text);
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px;
+    outline: none; transition: border-color .15s, box-shadow .15s; -webkit-appearance: none; appearance: none;
+  }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+           background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+  select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  /* Buttons */
+  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+         font: inherit; font-weight: 600; font-size: 16px; padding: 15px; border-radius: 14px; border: none;
+         cursor: pointer; margin-top: 10px; transition: transform .08s, opacity .15s; }
+  .btn:active { transform: scale(.98); }
+  .btn svg { width: 18px; height: 18px; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-red { background: var(--red-soft); color: var(--red); }
+  .btn-amber { background: var(--amber-soft); color: var(--amber); }
+  .btn-soft { background: var(--accent-soft); color: var(--accent); }
+  .btn-ghost { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+  .btn-sm { padding: 10px 12px; font-size: 14px; border-radius: 10px; margin-top: 8px; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+
+  /* Stops timeline */
+  .stops { position: relative; }
+  .stop { display: flex; gap: 12px; padding: 10px 0; }
+  .stop + .stop { border-top: 1px solid var(--border); }
+  .num { flex: 0 0 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
+         font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .stop-body { flex: 1; min-width: 0; }
+  .stop-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .stop-name { font-weight: 600; }
+  .stop-note { font-size: 13px; color: var(--muted); margin-top: 2px; white-space: pre-wrap; word-wrap: break-word; }
+  .stop-note.empty { font-style: italic; opacity: .7; }
+  .link { background: none; border: none; color: var(--accent); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 4px; }
+  .edit-box { margin-top: 8px; }
+  .empty-state { text-align: center; color: var(--muted); font-size: 14px; padding: 14px 0; }
+  .add-stop { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+
+  /* History */
+  .shift { border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-top: 10px; background: var(--surface-2); }
+  .shift-head { display: flex; justify-content: space-between; align-items: center; }
+  .shift-date { font-weight: 600; }
+  .shift-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .pill { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+  .pill.open { background: var(--green-soft); color: var(--green); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  .divider { height: 1px; background: var(--border); margin: 14px 0 4px; }
+  .section-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 12px; }
+
+  /* Tabs */
+  nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface);
+             border-top: 1px solid var(--border); padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); z-index: 10; }
+  nav.tabs .inner { max-width: 520px; margin: 0 auto; display: flex; }
+  .tab { flex: 1; background: none; border: none; font: inherit; font-size: 11px; font-weight: 600; color: var(--muted);
+         display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; cursor: pointer; border-radius: 10px; }
+  .tab svg { width: 22px; height: 22px; }
+  .tab.active { color: var(--accent); }
+  .view { display: none; }
+  .view.active { display: block; }
+  .hidden { display: none !important; }
+
+  /* Toast */
+  #toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px);
+           background: var(--text); color: var(--bg); padding: 12px 18px; border-radius: 12px; font-size: 14px; font-weight: 500;
+           opacity: 0; pointer-events: none; transition: all .25s; max-width: 90%; text-align: center; z-index: 20; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.error { background: var(--red); color: #fff; }
 </style>
 </head>
 <body>
 
-<h2>Time & Mileage Tracker</h2>
-<div id="status">Loading...</div>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1><span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Shift Log</h1>
+      <span class="date" id="todayLabel"></span>
+    </div>
+  </header>
 
-<select id="storeSelect"></select>
-<button class="primary" onclick="clockIn()">Clock In (at this store)</button>
-<button class="primary" onclick="logVisit()">I'm at this store</button>
-<button class="secondary" onclick="startLunch()">Start Lunch</button>
-<button class="secondary" onclick="endLunch()">End Lunch</button>
-<button class="danger" onclick="clockOut()">Clock Out (at this store)</button>
+  <!-- TODAY -->
+  <section class="view active" id="view-today">
+    <div class="hero">
+      <span class="badge"><span class="dot" id="stateDot"></span><span id="stateText">Loading</span></span>
+      <div class="timer" id="timer">0:00:00</div>
+      <div class="sub" id="heroSub">&nbsp;</div>
+      <div class="hero-meta hidden" id="heroMeta">
+        <div class="meta"><div class="k">Started</div><div class="v" id="metaStart">&nbsp;</div></div>
+        <div class="meta"><div class="k">Lunch</div><div class="v" id="metaLunch">&nbsp;</div></div>
+      </div>
+    </div>
 
-<h3>Add a store</h3>
-<input id="newStoreName" placeholder="Store name">
-<button onclick="addStore()">Add store</button>
+    <div class="card">
+      <label class="field" for="storeSelect" style="margin-top:0">Store</label>
+      <select id="storeSelect"></select>
+      <label class="field" for="noteInput">Quick note <span style="opacity:.7">(optional)</span></label>
+      <input id="noteInput" maxlength="200" placeholder="e.g. Checked fryer temps, fixed POS 2">
 
-<h3>Two-week report</h3>
-<input id="startDate" type="date">
-<input id="endDate" type="date">
-<button onclick="downloadReport()">Download CSV</button>
+      <div id="offActions">
+        <button class="btn btn-primary" onclick="clockIn()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12l5 5L20 7"/></svg>
+          Clock in here
+        </button>
+      </div>
 
-<h3>Edit past shifts</h3>
-<div id="shiftList"></div>
+      <div id="onActions" class="hidden">
+        <button class="btn btn-soft" onclick="logVisit()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0114 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          I'm at this store
+        </button>
+        <div class="row">
+          <button class="btn btn-amber" id="lunchStartBtn" onclick="startLunch()">Start lunch</button>
+          <button class="btn btn-amber hidden" id="lunchEndBtn" onclick="endLunch()">End lunch</button>
+          <button class="btn btn-red" onclick="clockOut()">Clock out here</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card hidden" id="currentStopsCard">
+      <h2>This shift's stops <span class="count" id="stopCount"></span></h2>
+      <div id="currentVisits"></div>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section class="view" id="view-history">
+    <div class="card">
+      <h2>Recent shifts <span class="count">Tap Edit to fix times, stores, or notes</span></h2>
+      <div id="shiftList"></div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="view" id="view-settings">
+    <div class="card">
+      <h2>Pay period report</h2>
+      <div class="grid2">
+        <div><label class="field" for="startDate">From</label><input id="startDate" type="date"></div>
+        <div><label class="field" for="endDate">To</label><input id="endDate" type="date"></div>
+      </div>
+      <button class="btn btn-primary" onclick="downloadReport()">Download CSV</button>
+    </div>
+
+    <div class="card">
+      <h2>Stores</h2>
+      <div id="storeChips" class="stop-note" style="margin-bottom:6px"></div>
+      <label class="field" for="newStoreName">Add a store</label>
+      <input id="newStoreName" placeholder="Store name">
+      <button class="btn btn-ghost" onclick="addStore()">Add store</button>
+    </div>
+  </section>
+</div>
+
+<nav class="tabs">
+  <div class="inner">
+    <button class="tab active" data-view="today" onclick="showView('today')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      Today
+    </button>
+    <button class="tab" data-view="history" onclick="showView('history')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      History
+    </button>
+    <button class="tab" data-view="settings" onclick="showView('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+      Reports
+    </button>
+  </div>
+</nav>
+
+<div id="toast"></div>
 
 <script>
 let currentShift = null;
+let stores = [];
+let timerHandle = null;
 
-function toLocalInputValue(isoString) {
-  if (!isoString) return '';
-  const d = new Date(isoString);
+/* ---------- small helpers ---------- */
+function $(id) { return document.getElementById(id); }
+function show(id, on) { $(id).classList.toggle('hidden', !on); }
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function fmtTime(iso) { return iso ? new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''; }
+function fmtDay(iso) { return new Date(iso).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }); }
+function toLocalInputValue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
   const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-function fromLocalInputValue(value) {
-  if (!value) return null;
-  return new Date(value).toISOString();
+function fromLocalInputValue(v) { return v ? new Date(v).toISOString() : null; }
+function storeOptions(selectedId) {
+  return stores.map(s => `<option value="${s.id}" ${s.id === selectedId ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('');
+}
+function noteParam() {
+  const n = $('noteInput').value.trim();
+  return n ? `&note=${encodeURIComponent(n)}` : '';
+}
+let toastTimer;
+function toast(msg, isError = false) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.toggle('error', isError);
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === name));
+  if (name === 'history') loadShiftList();
+  window.scrollTo({ top: 0 });
 }
 
+/* ---------- live timer ---------- */
+function tick() {
+  if (!currentShift) { $('timer').textContent = '0:00:00'; return; }
+  const now = Date.now();
+  let ms = now - new Date(currentShift.clockInTime).getTime();
+  if (currentShift.lunchStartTime) {
+    const ls = new Date(currentShift.lunchStartTime).getTime();
+    const le = currentShift.lunchEndTime ? new Date(currentShift.lunchEndTime).getTime() : now;
+    if (le > ls) ms -= (le - ls);
+  }
+  ms = Math.max(0, ms);
+  const h = Math.floor(ms / 3600000), m = Math.floor(ms / 60000) % 60, s = Math.floor(ms / 1000) % 60;
+  $('timer').textContent = `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+/* ---------- data loading ---------- */
 async function loadStores() {
   const res = await fetch('/api/stores');
-  const stores = await res.json();
-  const opts = stores.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-  document.getElementById('storeSelect').innerHTML = opts;
+  stores = await res.json();
+  $('storeSelect').innerHTML = storeOptions();
+  $('storeChips').textContent = stores.length ? stores.map(s => s.name).join(' · ') : 'No stores yet.';
 }
 
 async function loadStatus() {
   const res = await fetch('/api/shifts/current');
+  clearInterval(timerHandle);
+
   if (res.status === 204) {
     currentShift = null;
-    document.getElementById('status').textContent = 'Not currently clocked in.';
-  } else {
-    currentShift = await res.json();
-    let text = 'Clocked in since ' + new Date(currentShift.clockInTime).toLocaleTimeString();
-    if (currentShift.lunchStartTime && !currentShift.lunchEndTime) {
-      text += ' — on lunch since ' + new Date(currentShift.lunchStartTime).toLocaleTimeString();
-    } else if (currentShift.lunchStartTime && currentShift.lunchEndTime) {
-      text += ' — lunch ' + new Date(currentShift.lunchStartTime).toLocaleTimeString() +
-              ' to ' + new Date(currentShift.lunchEndTime).toLocaleTimeString();
-    }
-    document.getElementById('status').textContent = text;
+    $('stateDot').className = 'dot';
+    $('stateText').textContent = 'Off the clock';
+    $('heroSub').textContent = 'Pick your store and clock in to start.';
+    show('heroMeta', false);
+    show('offActions', true);
+    show('onActions', false);
+    show('currentStopsCard', false);
+    tick();
+    return;
   }
+
+  currentShift = await res.json();
+  const onLunch = currentShift.lunchStartTime && !currentShift.lunchEndTime;
+  const lunchDone = currentShift.lunchStartTime && currentShift.lunchEndTime;
+
+  $('stateDot').className = 'dot ' + (onLunch ? 'lunch' : 'on');
+  $('stateText').textContent = onLunch ? 'On lunch' : 'On the clock';
+  $('heroSub').textContent = onLunch ? 'Timer is paused while you are on lunch.' : 'Hours worked this shift';
+  $('metaStart').textContent = fmtDay(currentShift.clockInTime) + ', ' + fmtTime(currentShift.clockInTime);
+  $('metaLunch').textContent = onLunch ? 'Since ' + fmtTime(currentShift.lunchStartTime)
+                             : lunchDone ? fmtTime(currentShift.lunchStartTime) + ' to ' + fmtTime(currentShift.lunchEndTime)
+                             : 'Not taken';
+  show('heroMeta', true);
+  show('offActions', false);
+  show('onActions', true);
+  show('lunchStartBtn', !currentShift.lunchStartTime);
+  show('lunchEndBtn', onLunch);
+  show('currentStopsCard', true);
+
+  tick();
+  timerHandle = setInterval(tick, 1000);
+  await renderVisits(currentShift.id, 'currentVisits', false);
 }
 
+/* ---------- clock actions ---------- */
 async function clockIn() {
-  const storeId = document.getElementById('storeSelect').value;
-  await fetch(`/api/shifts/clock-in?storeId=${storeId}`, { method: 'POST' });
+  if (!stores.length) return toast('Add a store first under Reports.', true);
+  const storeId = $('storeSelect').value;
+  const res = await fetch(`/api/shifts/clock-in?storeId=${storeId}${noteParam()}`, { method: 'POST' });
+  if (res.status === 409) {
+    toast("You're already clocked in.", true);
+  } else if (res.ok) {
+    $('noteInput').value = '';
+    toast('Clocked in');
+  } else {
+    toast('Something went wrong.', true);
+  }
   await loadStatus();
-  await loadShiftList();
 }
 
 async function logVisit() {
-  if (!currentShift) return alert('Clock in first.');
-  const storeId = document.getElementById('storeSelect').value;
-  await fetch(`/api/shifts/${currentShift.id}/visit?storeId=${storeId}`, { method: 'POST' });
-  alert('Logged.');
+  if (!currentShift) return toast('Clock in first.', true);
+  const storeId = $('storeSelect').value;
+  const res = await fetch(`/api/shifts/${currentShift.id}/visit?storeId=${storeId}${noteParam()}`, { method: 'POST' });
+  if (!res.ok) return toast('Could not log that stop.', true);
+  $('noteInput').value = '';
+  toast('Stop logged');
+  await renderVisits(currentShift.id, 'currentVisits', false);
 }
 
 async function startLunch() {
-  if (!currentShift) return alert('Clock in first.');
+  if (!currentShift) return;
   await fetch(`/api/shifts/${currentShift.id}/lunch/start`, { method: 'POST' });
+  toast('Lunch started');
   await loadStatus();
 }
 
 async function endLunch() {
-  if (!currentShift) return alert('Clock in first.');
+  if (!currentShift) return;
   await fetch(`/api/shifts/${currentShift.id}/lunch/end`, { method: 'POST' });
+  toast('Welcome back');
   await loadStatus();
 }
 
 async function clockOut() {
-  if (!currentShift) return alert('Clock in first.');
-  const storeId = document.getElementById('storeSelect').value;
-  await fetch(`/api/shifts/${currentShift.id}/clock-out?storeId=${storeId}`, { method: 'POST' });
+  if (!currentShift) return;
+  if (!confirm('Clock out at ' + $('storeSelect').selectedOptions[0].text + '?')) return;
+  const storeId = $('storeSelect').value;
+  const res = await fetch(`/api/shifts/${currentShift.id}/clock-out?storeId=${storeId}${noteParam()}`, { method: 'POST' });
+  if (res.status === 409) toast('That shift is already clocked out.', true);
+  else if (res.ok) { $('noteInput').value = ''; toast('Clocked out. Nice work.'); }
+  await loadStatus();
+}
+
+/* ---------- stops (store visits) ---------- */
+async function renderVisits(shiftId, containerId, allowAdd) {
+  const res = await fetch(`/api/shifts/${shiftId}/visits`);
+  const visits = await res.json();
+  const c = $(containerId);
+  if (containerId === 'currentVisits') $('stopCount').textContent = visits.length + (visits.length === 1 ? ' stop' : ' stops');
+
+  const rows = visits.map(v => {
+    const k = `${containerId}-${v.id}`;
+    return `
+      <div class="stop">
+        <div class="num">${v.sequenceOrder}</div>
+        <div class="stop-body">
+          <div class="stop-top">
+            <span class="stop-name">${escapeHtml(v.storeName)}</span>
+            <button class="link" onclick="show('${k}-edit', $('${k}-edit').classList.contains('hidden'))">Edit</button>
+          </div>
+          <div class="stop-note ${v.note ? '' : 'empty'}">${v.note ? escapeHtml(v.note) : 'No note'}</div>
+          <div class="edit-box hidden" id="${k}-edit">
+            <select id="${k}-store">${storeOptions(v.storeId)}</select>
+            <input id="${k}-note" maxlength="200" placeholder="Note" value="${escapeHtml(v.note)}" style="margin-top:8px">
+            <div class="row">
+              <button class="btn btn-soft btn-sm" onclick="saveVisit(${v.id}, ${shiftId}, '${containerId}', ${allowAdd})">Save</button>
+              <button class="btn btn-red btn-sm" onclick="deleteVisit(${v.id}, ${shiftId}, '${containerId}', ${allowAdd})">Remove</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const addRow = allowAdd ? `
+    <div class="add-stop">
+      <div class="section-label">Add a stop</div>
+      <select id="${containerId}-addStore" style="margin-top:8px">${storeOptions()}</select>
+      <input id="${containerId}-addNote" maxlength="200" placeholder="Note (optional)" style="margin-top:8px">
+      <button class="btn btn-ghost btn-sm" onclick="addVisitToShift(${shiftId}, '${containerId}')">Add stop</button>
+    </div>` : '';
+
+  c.innerHTML = `<div class="stops">${rows || '<div class="empty-state">No stops logged yet.</div>'}</div>${addRow}`;
+}
+
+async function refreshVisits(shiftId, containerId, allowAdd) {
+  await renderVisits(shiftId, containerId, allowAdd);
+  if (currentShift && currentShift.id === shiftId && containerId !== 'currentVisits') {
+    await renderVisits(shiftId, 'currentVisits', false);
+  }
+}
+
+async function saveVisit(visitId, shiftId, containerId, allowAdd) {
+  const k = `${containerId}-${visitId}`;
+  const res = await fetch(`/api/shifts/visits/${visitId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ storeId: Number($(`${k}-store`).value), note: $(`${k}-note`).value })
+  });
+  toast(res.ok ? 'Stop updated' : 'Could not save.', !res.ok);
+  await refreshVisits(shiftId, containerId, allowAdd);
+}
+
+async function deleteVisit(visitId, shiftId, containerId, allowAdd) {
+  if (!confirm('Remove this stop?')) return;
+  const res = await fetch(`/api/shifts/visits/${visitId}`, { method: 'DELETE' });
+  toast(res.ok ? 'Stop removed' : 'Could not remove.', !res.ok);
+  await refreshVisits(shiftId, containerId, allowAdd);
+}
+
+async function addVisitToShift(shiftId, containerId) {
+  const storeId = $(`${containerId}-addStore`).value;
+  const n = $(`${containerId}-addNote`).value.trim();
+  const note = n ? `&note=${encodeURIComponent(n)}` : '';
+  const res = await fetch(`/api/shifts/${shiftId}/visit?storeId=${storeId}${note}`, { method: 'POST' });
+  toast(res.ok ? 'Stop added' : 'Could not add stop.', !res.ok);
+  await refreshVisits(shiftId, containerId, true);
+}
+
+/* ---------- history ---------- */
+async function loadShiftList() {
+  const res = await fetch('/api/shifts/recent');
+  const shifts = await res.json();
+  const c = $('shiftList');
+  if (!shifts.length) { c.innerHTML = '<div class="empty-state">No shifts yet.</div>'; return; }
+
+  c.innerHTML = shifts.map(s => {
+    const open = !s.clockOutTime;
+    const hours = s.totalHours != null ? s.totalHours.toFixed(2) + ' h' : '';
+    return `
+      <div class="shift">
+        <div class="shift-head">
+          <div>
+            <div class="shift-date">${fmtDay(s.clockInTime)}</div>
+            <div class="shift-sub">${fmtTime(s.clockInTime)} to ${open ? 'now' : fmtTime(s.clockOutTime)}</div>
+          </div>
+          <span class="pill ${open ? 'open' : ''}">${open ? 'In progress' : hours}</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="toggleShift(${s.id})">Edit</button>
+        <div class="hidden" id="shift-${s.id}">
+          <div class="grid2">
+            <div><label class="field">Clock in</label><input type="datetime-local" id="in-${s.id}" value="${toLocalInputValue(s.clockInTime)}"></div>
+            <div><label class="field">Clock out</label><input type="datetime-local" id="out-${s.id}" value="${toLocalInputValue(s.clockOutTime)}"></div>
+            <div><label class="field">Lunch start</label><input type="datetime-local" id="lunchIn-${s.id}" value="${toLocalInputValue(s.lunchStartTime)}"></div>
+            <div><label class="field">Lunch end</label><input type="datetime-local" id="lunchOut-${s.id}" value="${toLocalInputValue(s.lunchEndTime)}"></div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="saveShift(${s.id})">Save times</button>
+          <div class="divider"></div>
+          <div class="section-label">Stops and notes</div>
+          <div id="visits-${s.id}"></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function toggleShift(id) {
+  const box = $(`shift-${id}`);
+  const opening = box.classList.contains('hidden');
+  box.classList.toggle('hidden', !opening);
+  if (opening) await renderVisits(id, `visits-${id}`, true);
+}
+
+async function saveShift(id) {
+  const body = {
+    clockInTime: fromLocalInputValue($(`in-${id}`).value),
+    clockOutTime: fromLocalInputValue($(`out-${id}`).value),
+    lunchStartTime: fromLocalInputValue($(`lunchIn-${id}`).value),
+    lunchEndTime: fromLocalInputValue($(`lunchOut-${id}`).value)
+  };
+  const res = await fetch(`/api/shifts/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  toast(res.ok ? 'Shift saved' : 'Could not save.', !res.ok);
   await loadStatus();
   await loadShiftList();
 }
 
+/* ---------- settings ---------- */
 async function addStore() {
-  const name = document.getElementById('newStoreName').value;
+  const name = $('newStoreName').value.trim();
   if (!name) return;
   await fetch('/api/stores', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name })
   });
-  document.getElementById('newStoreName').value = '';
+  $('newStoreName').value = '';
+  toast('Store added');
   await loadStores();
 }
 
 function downloadReport() {
-  const start = document.getElementById('startDate').value;
-  const end = document.getElementById('endDate').value;
-  if (!start || !end) return alert('Pick both dates.');
+  const start = $('startDate').value, end = $('endDate').value;
+  if (!start || !end) return toast('Pick both dates.', true);
   window.location.href = `/api/reports/csv?start=${start}&end=${end}`;
 }
 
-async function loadShiftList() {
-  const res = await fetch('/api/shifts/recent');
-  const shifts = await res.json();
-  const container = document.getElementById('shiftList');
-  container.innerHTML = shifts.map(s => `
-    <div class="shiftRow" id="row-${s.id}">
-      <label>Clock In</label>
-      <input type="datetime-local" id="in-${s.id}" value="${toLocalInputValue(s.clockInTime)}">
-      <label>Lunch Start</label>
-      <input type="datetime-local" id="lunchIn-${s.id}" value="${toLocalInputValue(s.lunchStartTime)}">
-      <label>Lunch End</label>
-      <input type="datetime-local" id="lunchOut-${s.id}" value="${toLocalInputValue(s.lunchEndTime)}">
-      <label>Clock Out</label>
-      <input type="datetime-local" id="out-${s.id}" value="${toLocalInputValue(s.clockOutTime)}">
-      <button onclick="saveShift(${s.id})">Save</button>
-    </div>
-  `).join('');
-}
-
-async function saveShift(id) {
-  const clockInTime = fromLocalInputValue(document.getElementById(`in-${id}`).value);
-  const clockOutTime = fromLocalInputValue(document.getElementById(`out-${id}`).value);
-  const lunchStartTime = fromLocalInputValue(document.getElementById(`lunchIn-${id}`).value);
-  const lunchEndTime = fromLocalInputValue(document.getElementById(`lunchOut-${id}`).value);
-
-  await fetch(`/api/shifts/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ clockInTime, clockOutTime, lunchStartTime, lunchEndTime })
-  });
-  alert('Saved.');
+/* ---------- boot ---------- */
+$('todayLabel').textContent = new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+(async () => {
+  await loadStores();
   await loadStatus();
-}
-
-loadStores();
-loadStatus();
-loadShiftList();
+})();
 </script>
 </body>
 </html>
